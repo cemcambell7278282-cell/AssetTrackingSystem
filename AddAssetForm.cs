@@ -1,8 +1,8 @@
 namespace AssetTrackingSystem
 {
-    public partial class Form1 : Form
+    public partial class AddAssetForm : Form
     {
-        public Form1()
+        public AddAssetForm()
         {
             InitializeComponent();
         }
