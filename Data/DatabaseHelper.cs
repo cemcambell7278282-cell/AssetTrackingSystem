@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Data.SQLite;
 using System.IO;
 
-namespace AssetTrackingSystem
+namespace AssetTrackingSystem.Data
 {
     public static class DatabaseHelper
     {
