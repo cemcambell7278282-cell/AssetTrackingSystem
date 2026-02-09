@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 using AssetTrackingSystem.Models;
 using AssetTrackingSystem.Data;
@@ -16,9 +16,9 @@ namespace AssetTrackingSystem
         {
             try
             {
+                // ✅ AssetId is NOT set manually anymore
                 Asset asset = new Asset
                 {
-                    AssetId = int.Parse(txtAssetId.Text),
                     DeviceName = txtDeviceName.Text.Trim(),
                     Manufacturer = txtManufacturer.Text.Trim(),
                     Model = txtModel.Text.Trim(),
@@ -41,7 +41,6 @@ namespace AssetTrackingSystem
 
         private void ClearForm()
         {
-            txtAssetId.Clear();
             txtDeviceName.Clear();
             txtManufacturer.Clear();
             txtModel.Clear();

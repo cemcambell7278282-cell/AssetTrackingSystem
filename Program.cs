@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Windows.Forms;
-using SQLitePCL;
 using AssetTrackingSystem.Data;
 
 namespace AssetTrackingSystem
@@ -10,12 +9,11 @@ namespace AssetTrackingSystem
         [STAThread]
         static void Main()
         {
-            Batteries.Init(); // SQLite native DLL
+            ApplicationConfiguration.Initialize();
 
-            // ✅ Create Assets table if missing
+            // 🔹 Ensure DB + tables exist
             DatabaseHelper.InitializeDatabase();
 
-            ApplicationConfiguration.Initialize();
             Application.Run(new AddAssetForm());
         }
     }
