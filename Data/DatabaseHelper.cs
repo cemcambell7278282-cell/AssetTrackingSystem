@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Data.SQLite;
+﻿using System.Data.SQLite;
 using AssetTrackingSystem.Models;
 
 namespace AssetTrackingSystem.Data
@@ -12,16 +7,42 @@ namespace AssetTrackingSystem.Data
     {
         private static string connectionString = "Data Source=assets.db;Version=3;";
 
+        // ✅ Call this once at app startup
+        public static void InitializeDatabase()
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+
+                string createTableQuery = @"
+                CREATE TABLE IF NOT EXISTS Assets (
+                    AssetId INTEGER PRIMARY KEY,
+                    DeviceName TEXT,
+                    Model TEXT,
+                    DeviceType TEXT,
+                    Manufacturer TEXT,
+                    IpAddress TEXT,
+                    Notes TEXT
+                );";
+
+                using (var command = new SQLiteCommand(createTableQuery, connection))
+                {
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
         public static void InsertAsset(Asset asset)
         {
             using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
 
-                string query = @"INSERT INTO Assets 
-                                (AssetId, DeviceName, Model, DeviceType, Manufacturer, IpAddress, Notes)
-                                VALUES 
-                                (@AssetId, @DeviceName, @Model, @DeviceType, @Manufacturer, @IpAddress, @Notes)";
+                string query = @"
+                INSERT INTO Assets 
+                (AssetId, DeviceName, Model, DeviceType, Manufacturer, IpAddress, Notes)
+                VALUES 
+                (@AssetId, @DeviceName, @Model, @DeviceType, @Manufacturer, @IpAddress, @Notes);";
 
                 using (var command = new SQLiteCommand(query, connection))
                 {
@@ -39,4 +60,3 @@ namespace AssetTrackingSystem.Data
         }
     }
 }
-
