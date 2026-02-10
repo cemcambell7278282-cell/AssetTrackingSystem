@@ -11,10 +11,10 @@ namespace AssetTrackingSystem
         {
             ApplicationConfiguration.Initialize();
 
-            // 🔹 Ensure DB + tables exist
+            // ✅ Initialize ALL database tables here
             DatabaseHelper.InitializeDatabase();
 
-            Application.Run(new AddAssetForm());
+            Application.Run(new MainForm());
         }
     }
 }

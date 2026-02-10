@@ -48,5 +48,10 @@ namespace AssetTrackingSystem
             txtIPAddress.Clear();
             txtNotes.Clear();
         }
+
+        private void txtNotes_TextChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }
