@@ -2,18 +2,36 @@
 using System.Windows.Forms;
 using AssetTrackingSystem.Models;
 using AssetTrackingSystem.Data;
+using AssetTrackingSystem.Security;
 
 namespace AssetTrackingSystem
 {
     public partial class AddSoftwareForm : Form
     {
+        private bool IsAdmin =>
+    Session.CurrentUser.Role
+        .Trim()
+        .Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
         public AddSoftwareForm()
         {
             InitializeComponent();
+
+            if (Session.CurrentUser == null)
+            {
+                MessageBox.Show("Unauthorized access.");
+                Close();
+                return;
+            }
+
+            ApplyRolePermissions();
+
             cmbHardwareAsset.SelectedIndexChanged += cmbHardwareAsset_SelectedIndexChanged;
             dgvSoftware.CellClick += dgvSoftware_CellClick;
-            this.Load += AddSoftwareForm_Load;
+            Load += AddSoftwareForm_Load;
         }
+
+        // ================= FORM LOAD =================
 
         private void AddSoftwareForm_Load(object sender, EventArgs e)
         {
@@ -22,7 +40,7 @@ namespace AssetTrackingSystem
             if (assets.Count == 0)
             {
                 MessageBox.Show("Please add a hardware asset first.");
-                this.Close();
+                Close();
                 return;
             }
 
@@ -35,6 +53,12 @@ namespace AssetTrackingSystem
 
         private void btnAddSoftware_Click(object sender, EventArgs e)
         {
+            if (!IsAdmin)
+            {
+                MessageBox.Show("You do not have permission to add software.");
+                return;
+            }
+
             if (!ValidateInputs())
                 return;
 
@@ -59,14 +83,14 @@ namespace AssetTrackingSystem
 
         private void cmbHardwareAsset_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (cmbHardwareAsset.SelectedItem is not Asset selectedAsset)
+            if (cmbHardwareAsset.SelectedItem is not Asset asset)
                 return;
 
             dgvSoftware.DataSource =
-                DatabaseHelper.GetSoftwareByAssetId(selectedAsset.AssetId);
+                DatabaseHelper.GetSoftwareByAssetId(asset.AssetId);
         }
 
-        // ================= LOAD SELECTED SOFTWARE INTO TEXTBOXES =================
+        // ================= LOAD SELECTED SOFTWARE =================
 
         private void dgvSoftware_CellClick(object sender, DataGridViewCellEventArgs e)
         {
@@ -90,6 +114,12 @@ namespace AssetTrackingSystem
 
         private void btnEditSoftware_Click(object sender, EventArgs e)
         {
+            if (!IsAdmin)
+            {
+                MessageBox.Show("You do not have permission to edit software.");
+                return;
+            }
+
             if (dgvSoftware.SelectedRows.Count == 0)
             {
                 MessageBox.Show("Please select a software record to edit.");
@@ -100,7 +130,8 @@ namespace AssetTrackingSystem
                 return;
 
             int softwareId =
-                Convert.ToInt32(dgvSoftware.SelectedRows[0].Cells["SoftwareAssetId"].Value);
+                Convert.ToInt32(dgvSoftware.SelectedRows[0]
+                .Cells["SoftwareAssetId"].Value);
 
             SoftwareAsset software = new SoftwareAsset
             {
@@ -108,8 +139,7 @@ namespace AssetTrackingSystem
                 OperatingSystem = txtOSName.Text.Trim(),
                 Version = txtVersion.Text.Trim(),
                 Manufacturer = txtManufacturer.Text.Trim(),
-                AssetId = (int)cmbHardwareAsset.SelectedValue,
-                LinkedDate = DateTime.Now // maintain audit trail
+                AssetId = (int)cmbHardwareAsset.SelectedValue
             };
 
             DatabaseHelper.UpdateSoftwareAsset(software);
@@ -123,6 +153,12 @@ namespace AssetTrackingSystem
 
         private void btnDeleteSoftware_Click(object sender, EventArgs e)
         {
+            if (!IsAdmin)
+            {
+                MessageBox.Show("You do not have permission to delete software.");
+                return;
+            }
+
             if (dgvSoftware.SelectedRows.Count == 0)
             {
                 MessageBox.Show("Please select a software record to delete.");
@@ -138,7 +174,8 @@ namespace AssetTrackingSystem
                 return;
 
             int softwareId =
-                Convert.ToInt32(dgvSoftware.SelectedRows[0].Cells["SoftwareAssetId"].Value);
+                Convert.ToInt32(dgvSoftware.SelectedRows[0]
+                .Cells["SoftwareAssetId"].Value);
 
             DatabaseHelper.DeleteSoftwareAsset(softwareId);
 
@@ -152,6 +189,9 @@ namespace AssetTrackingSystem
 
         private void ReloadSoftwareGrid()
         {
+            if (cmbHardwareAsset.SelectedValue == null)
+                return;
+
             int assetId = (int)cmbHardwareAsset.SelectedValue;
             dgvSoftware.DataSource =
                 DatabaseHelper.GetSoftwareByAssetId(assetId);
@@ -167,12 +207,6 @@ namespace AssetTrackingSystem
                 return false;
             }
 
-            if (cmbHardwareAsset.SelectedValue == null)
-            {
-                MessageBox.Show("Please select a hardware asset.");
-                return false;
-            }
-
             return true;
         }
 
@@ -181,7 +215,33 @@ namespace AssetTrackingSystem
             txtOSName.Clear();
             txtVersion.Clear();
             txtManufacturer.Clear();
-            cmbHardwareAsset.SelectedIndex = 0;
+        }
+
+        private void ApplyRolePermissions()
+        {
+            if (!IsAdmin)
+            {
+                btnAddSoftware.Enabled = false;
+                btnEditSoftware.Enabled = false;
+                btnDeleteSoftware.Enabled = false;
+
+                txtOSName.ReadOnly = true;
+                txtVersion.ReadOnly = true;
+                txtManufacturer.ReadOnly = true;
+                cmbHardwareAsset.Enabled = false;
+            }
+            else
+            {
+                // Explicitly ENABLE for Admin
+                btnAddSoftware.Enabled = true;
+                btnEditSoftware.Enabled = true;
+                btnDeleteSoftware.Enabled = true;
+
+                txtOSName.ReadOnly = false;
+                txtVersion.ReadOnly = false;
+                txtManufacturer.ReadOnly = false;
+                cmbHardwareAsset.Enabled = true;
+            }
         }
     }
 }
