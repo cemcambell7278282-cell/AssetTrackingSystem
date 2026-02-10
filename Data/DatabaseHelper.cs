@@ -9,44 +9,44 @@ namespace AssetTrackingSystem.Data
     {
         private static string connectionString = "Data Source=assets.db;Version=3;";
 
-        // ✅ Call ONCE at app startup
+        // ===================== INITIALIZATION =====================
         public static void InitializeDatabase()
         {
             using (var connection = new SQLiteConnection(connectionString))
             {
                 connection.Open();
 
-                string createAssetsTable = @"
-        CREATE TABLE IF NOT EXISTS Assets (
-            AssetId INTEGER PRIMARY KEY AUTOINCREMENT,
-            DeviceName TEXT NOT NULL,
-            Model TEXT NOT NULL,
-            DeviceType TEXT NOT NULL,
-            Manufacturer TEXT NOT NULL,
-            IpAddress TEXT,
-            Notes TEXT
-        );";
+                // Enable foreign keys
+                using (var pragma = new SQLiteCommand("PRAGMA foreign_keys = ON;", connection))
+                {
+                    pragma.ExecuteNonQuery();
+                }
 
-                // 🔥 FORCE RESET SOFTWARE TABLE
-                string dropSoftwareTable = @"DROP TABLE IF EXISTS SoftwareAssets;";
+                string createAssetsTable = @"
+                CREATE TABLE IF NOT EXISTS Assets (
+                    AssetId INTEGER PRIMARY KEY AUTOINCREMENT,
+                    DeviceName TEXT NOT NULL,
+                    Model TEXT NOT NULL,
+                    DeviceType TEXT NOT NULL,
+                    Manufacturer TEXT NOT NULL,
+                    IpAddress TEXT,
+                    Notes TEXT
+                );";
 
                 string createSoftwareAssetsTable = @"
-        CREATE TABLE SoftwareAssets (
-            SoftwareAssetId INTEGER PRIMARY KEY AUTOINCREMENT,
-            OperatingSystem TEXT NOT NULL,
-            Version TEXT NOT NULL,
-            Manufacturer TEXT NOT NULL,
-            AssetId INTEGER,
-            LinkedDate TEXT,
-            FOREIGN KEY (AssetId) REFERENCES Assets(AssetId)
-        );";
+                CREATE TABLE IF NOT EXISTS SoftwareAssets (
+                    SoftwareAssetId INTEGER PRIMARY KEY AUTOINCREMENT,
+                    OperatingSystem TEXT NOT NULL,
+                    Version TEXT NOT NULL,
+                    Manufacturer TEXT NOT NULL,
+                    AssetId INTEGER NOT NULL,
+                    LinkedDate TEXT NOT NULL,
+                    FOREIGN KEY (AssetId) REFERENCES Assets(AssetId)
+                );";
 
                 using (var cmd = new SQLiteCommand(connection))
                 {
                     cmd.CommandText = createAssetsTable;
-                    cmd.ExecuteNonQuery();
-
-                    cmd.CommandText = dropSoftwareTable;
                     cmd.ExecuteNonQuery();
 
                     cmd.CommandText = createSoftwareAssetsTable;
@@ -56,7 +56,6 @@ namespace AssetTrackingSystem.Data
         }
 
         // ===================== HARDWARE =====================
-
         public static void InsertAsset(Asset asset)
         {
             using (var connection = new SQLiteConnection(connectionString))
@@ -77,34 +76,6 @@ namespace AssetTrackingSystem.Data
                     command.Parameters.AddWithValue("@Manufacturer", asset.Manufacturer);
                     command.Parameters.AddWithValue("@IpAddress", asset.IPAddress);
                     command.Parameters.AddWithValue("@Notes", asset.Notes);
-
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
-
-        // ===================== SOFTWARE =====================
-
-        public static void InsertSoftwareAsset(SoftwareAsset software)
-        {
-            using (var connection = new SQLiteConnection(connectionString))
-            {
-                connection.Open();
-
-                string query = @"
-                INSERT INTO SoftwareAssets
-                (OperatingSystem, Version, Manufacturer, AssetId, LinkedDate)
-                VALUES
-                (@OperatingSystem, @Version, @Manufacturer, @AssetId, @LinkedDate);";
-
-                using (var command = new SQLiteCommand(query, connection))
-                {
-                    command.Parameters.AddWithValue("@OperatingSystem", software.OperatingSystem);
-                    command.Parameters.AddWithValue("@Version", software.Version);
-                    command.Parameters.AddWithValue("@Manufacturer", software.Manufacturer);
-                    command.Parameters.AddWithValue("@AssetId", software.AssetId);
-                    command.Parameters.AddWithValue("@LinkedDate", software.LinkedDate.ToString("yyyy-MM-dd"));
-
                     command.ExecuteNonQuery();
                 }
             }
@@ -137,6 +108,33 @@ namespace AssetTrackingSystem.Data
             return assets;
         }
 
+        // ===================== SOFTWARE =====================
+        public static void InsertSoftwareAsset(SoftwareAsset software)
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = @"
+                INSERT INTO SoftwareAssets
+                (OperatingSystem, Version, Manufacturer, AssetId, LinkedDate)
+                VALUES
+                (@OperatingSystem, @Version, @Manufacturer, @AssetId, @LinkedDate);";
+
+                using (var command = new SQLiteCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@OperatingSystem", software.OperatingSystem);
+                    command.Parameters.AddWithValue("@Version", software.Version);
+                    command.Parameters.AddWithValue("@Manufacturer", software.Manufacturer);
+                    command.Parameters.AddWithValue("@AssetId", software.AssetId);
+                    command.Parameters.AddWithValue("@LinkedDate",
+                        software.LinkedDate.ToString("yyyy-MM-dd"));
+
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
         public static List<SoftwareAsset> GetSoftwareByAssetId(int assetId)
         {
             var softwareList = new List<SoftwareAsset>();
@@ -146,9 +144,9 @@ namespace AssetTrackingSystem.Data
                 connection.Open();
 
                 string query = @"
-        SELECT SoftwareAssetId, OperatingSystem, Version, Manufacturer, AssetId, LinkedDate
-        FROM SoftwareAssets
-        WHERE AssetId = @AssetId;";
+                SELECT SoftwareAssetId, OperatingSystem, Version, Manufacturer, AssetId, LinkedDate
+                FROM SoftwareAssets
+                WHERE AssetId = @AssetId;";
 
                 using (var command = new SQLiteCommand(query, connection))
                 {
@@ -158,6 +156,9 @@ namespace AssetTrackingSystem.Data
                     {
                         while (reader.Read())
                         {
+                            DateTime linkedDate;
+                            DateTime.TryParse(reader["LinkedDate"].ToString(), out linkedDate);
+
                             softwareList.Add(new SoftwareAsset
                             {
                                 SoftwareAssetId = Convert.ToInt32(reader["SoftwareAssetId"]),
@@ -165,7 +166,7 @@ namespace AssetTrackingSystem.Data
                                 Version = reader["Version"].ToString(),
                                 Manufacturer = reader["Manufacturer"].ToString(),
                                 AssetId = Convert.ToInt32(reader["AssetId"]),
-                                LinkedDate = DateTime.Parse(reader["LinkedDate"].ToString())
+                                LinkedDate = linkedDate
                             });
                         }
                     }
@@ -175,5 +176,47 @@ namespace AssetTrackingSystem.Data
             return softwareList;
         }
 
+        public static void UpdateSoftwareAsset(SoftwareAsset software)
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = @"
+                UPDATE SoftwareAssets
+                SET OperatingSystem = @OperatingSystem,
+                    Version = @Version,
+                    Manufacturer = @Manufacturer,
+                    AssetId = @AssetId
+                WHERE SoftwareAssetId = @SoftwareAssetId;";
+
+                using (var command = new SQLiteCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@OperatingSystem", software.OperatingSystem);
+                    command.Parameters.AddWithValue("@Version", software.Version);
+                    command.Parameters.AddWithValue("@Manufacturer", software.Manufacturer);
+                    command.Parameters.AddWithValue("@AssetId", software.AssetId);
+                    command.Parameters.AddWithValue("@SoftwareAssetId", software.SoftwareAssetId);
+
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static void DeleteSoftwareAsset(int softwareAssetId)
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = "DELETE FROM SoftwareAssets WHERE SoftwareAssetId = @id";
+
+                using (var command = new SQLiteCommand(query, connection))
+                {
+                    command.Parameters.AddWithValue("@id", softwareAssetId);
+                    command.ExecuteNonQuery();
+                }
+            }
+        }
     }
 }
