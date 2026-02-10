@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data.SQLite;
 using AssetTrackingSystem.Models;
+using AssetTrackingSystem.Security;
 
 namespace AssetTrackingSystem.Data
 {
@@ -44,6 +45,16 @@ namespace AssetTrackingSystem.Data
                     FOREIGN KEY (AssetId) REFERENCES Assets(AssetId)
                 );";
 
+                string createUsersTable = @"
+                CREATE TABLE IF NOT EXISTS Users (
+                    UserId INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Email TEXT NOT NULL UNIQUE,
+                    PasswordHash TEXT NOT NULL,
+                    Role TEXT NOT NULL,
+                    AssetId INTEGER,
+                    FOREIGN KEY (AssetId) REFERENCES Assets(AssetId)
+                );";
+
                 using (var cmd = new SQLiteCommand(connection))
                 {
                     cmd.CommandText = createAssetsTable;
@@ -51,6 +62,10 @@ namespace AssetTrackingSystem.Data
 
                     cmd.CommandText = createSoftwareAssetsTable;
                     cmd.ExecuteNonQuery();
+
+                    cmd.CommandText = createUsersTable;
+                    cmd.ExecuteNonQuery();
+
                 }
             }
         }
@@ -218,5 +233,78 @@ namespace AssetTrackingSystem.Data
                 }
             }
         }
+
+        public static void SeedUsers()
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+
+                // Check if users already exist
+                string checkQuery = "SELECT COUNT(*) FROM Users;";
+                using (var checkCmd = new SQLiteCommand(checkQuery, connection))
+                {
+                    long count = (long)checkCmd.ExecuteScalar();
+                    if (count > 0) return; // Users already seeded
+                }
+
+                string insertUserQuery = @"
+        INSERT INTO Users (Email, PasswordHash, Role, AssetId)
+        VALUES (@Email, @PasswordHash, @Role, @AssetId);";
+
+                using (var cmd = new SQLiteCommand(insertUserQuery, connection))
+                {
+                    // 🔐 IT Admin user
+                    cmd.Parameters.AddWithValue("@Email", "admin@company.com");
+                    cmd.Parameters.AddWithValue("@PasswordHash",
+                        PasswordHelper.HashPassword("Admin@123"));
+                    cmd.Parameters.AddWithValue("@Role", "IT");
+                    cmd.Parameters.AddWithValue("@AssetId", DBNull.Value);
+                    cmd.ExecuteNonQuery();
+
+                    cmd.Parameters.Clear();
+
+                    // 👤 Normal user (linked to hardware AssetId = 1)
+                    cmd.Parameters.AddWithValue("@Email", "user@company.com");
+                    cmd.Parameters.AddWithValue("@PasswordHash",
+                        PasswordHelper.HashPassword("User@123"));
+                    cmd.Parameters.AddWithValue("@Role", "User");
+                    cmd.Parameters.AddWithValue("@AssetId", 1);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public static User GetUserByEmail(string email)
+        {
+            using (var connection = new SQLiteConnection(connectionString))
+            {
+                connection.Open();
+
+                string query = "SELECT * FROM Users WHERE Email = @Email;";
+                using (var cmd = new SQLiteCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@Email", email);
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (!reader.Read()) return null;
+
+                        return new User
+                        {
+                            UserId = Convert.ToInt32(reader["UserId"]),
+                            Email = reader["Email"].ToString(),
+                            PasswordHash = reader["PasswordHash"].ToString(),
+                            Role = reader["Role"].ToString(),
+                            AssetId = reader["AssetId"] == DBNull.Value
+                                ? null
+                                : (int?)Convert.ToInt32(reader["AssetId"])
+                        };
+                    }
+                }
+            }
+        }
+
+
     }
 }

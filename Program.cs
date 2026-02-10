@@ -13,8 +13,8 @@ namespace AssetTrackingSystem
 
             // ✅ Initialize ALL database tables here
             DatabaseHelper.InitializeDatabase();
-
-            Application.Run(new MainForm());
+            DatabaseHelper.SeedUsers();
+            Application.Run(new LoginForm());
         }
     }
 }
